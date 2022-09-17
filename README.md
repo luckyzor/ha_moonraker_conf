@@ -25,4 +25,4 @@
 
 #### Here you can find more information about Moonraker API: https://moonraker.readthedocs.io/en/latest/web_api/
 
-#### Feel free to open and issue if you have any question or if something doens't work
+#### Feel free to open an issue if you have any question or if something doens't work
