@@ -1,0 +1,220 @@
+
+# IF you have switchs configured in your Moonraker configuration you can call them via the API
+# In here you can see the switchs, in the RPI gpio, I'm using to power down the printer and the LED
+switch:
+  - platform: rest
+    name: vcore400_light
+    resource: "http://10.0.0.8:7125/machine/device_power/device?device=Light"
+    body_on: '{"action": "on"}'
+    body_off: '{"action": "off"}'
+    headers:
+      Content-Type: 'application/json'
+    is_on_template: >-
+      {{ 'result' in value_json and (value_json.result.values() | list | first == "on") }}
+
+  - platform: rest
+    name: vcore400_power
+    resource: "http://10.0.0.8:7125/machine/device_power/device?device=V-Core3"
+    body_on: '{"action": "on"}'
+    body_off: '{"action": "off"}'
+    headers:
+      Content-Type: 'application/json'
+    is_on_template: >-
+      {{ 'result' in value_json and (value_json.result.values() | list | first == "on") }}
+
+rest:
+  scan_interval: 5
+  resource_template: "http://10.0.0.8:7125/server/files/metadata?filename={{ states(('sensor.vcore400_current_print')) }}"
+  sensor:
+    - name: vcore400_file_metadata
+      json_attributes_path: "$.result"
+      json_attributes:
+        - layer_height
+        - object_height
+        - thumbnails
+      value_template: "OK"
+
+rest_command:
+  vcore400_emergency_stop:
+    url: "http://10.0.0.8:7125/printer/emergency_stop"
+    method: post
+  vcore400_firmware_restart:
+    url: "http://10.0.0.8:7125/printer/firmware_restart"
+    method: post
+  vcore400_cancel:
+    url: "http://10.0.0.8:7125/printer/print/cancel"
+    method: post
+  vcore400_pause:
+    url: "http://10.0.0.8:7125/printer/print/pause"
+    method: post
+  vcore400_resume:
+    url: "http://10.0.0.8:7125/printer/print/resume"
+    method: post
+
+sensor:
+  - platform: rest
+    name: vcore400_sensor
+    resource: "http://10.0.0.8:7125/printer/objects/query?heater_bed&extruder&print_stats&toolhead&display_status&temperature_sensor%20Octopus_Pro_446&gcode_move&temperature_sensor%20raspberry_pi"
+    json_attributes_path: "$.result.status"
+    json_attributes:
+      - heater_bed
+      - extruder
+      - print_stats
+      - toolhead
+      - display_status
+      - gcode_move
+      - temperature_sensor raspberry_pi
+      - temperature_sensor Octopus_Pro_446
+        #- "filament_switch_sensor Filament"
+    value_template: "OK"
+    force_update: true
+    scan_interval: 1
+
+  - platform: rest
+    name: vcore400_info
+    scan_interval: 1
+    resource_template: "http://10.0.0.8:7125/printer/info"
+    json_attributes_path: "$.result"
+    json_attributes:
+      - state_message
+      - state
+    value_template: "OK"
+
+  - platform: rest
+    scan_interval: 15
+    name: klipper_preview_path
+    resource_template: "http://10.0.0.8:7125/server/files/metadata?filename={{ states(('sensor.vcore400_current_print')) }}"
+    json_attributes_path: "$.result.thumbnails.[1]"
+    json_attributes:
+      - relative_path
+      - width
+      - height
+      - size
+    value_template: "OK"
+
+  - platform: template
+    sensors:
+      vcore400_hotend_target:
+        friendly_name: "Hotend Target"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["extruder"]["target"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer
+      vcore400_hotend_actual:
+        friendly_name: "Hotend Actual"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["extruder"]["temperature"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer
+      vcore400_hotend_power:
+        friendly_name: "Hotend Power"
+        value_template: '{{ ((states.sensor.vcore400_sensor.attributes["extruder"]["power"]  | float) * 100) | round(0) }}'
+        unit_of_measurement: "%"
+        icon_template: mdi:flash
+      vcore400_bed_target:
+        friendly_name: "Bed Target"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["heater_bed"]["target"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer
+      vcore400_bed_actual:
+        friendly_name: "Bed Actual"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["heater_bed"]["temperature"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer
+      vcore400_bed_power:
+        friendly_name: "Bed Power"
+        value_template: '{{ ((states.sensor.vcore400_sensor.attributes["heater_bed"]["power"]  | float) * 100) | round(0) }}'
+        unit_of_measurement: "%"
+        icon_template: mdi:flash
+      vcore400_state:
+        friendly_name: "Printer State"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["print_stats"]["state"]}}'
+        icon_template: >
+          {% set val =  states.sensor.vcore400_sensor.attributes["print_stats"]["state"]  %}
+          {% if val == 'standby' %}
+            mdi:sleep
+          {% elif val == 'error' %}
+            mdi:alert-circle
+          {% elif val == 'printing' %}
+            mdi:printer-3d-nozzle
+          {% elif val == 'paused' %}
+            mdi:pause-circle
+          {% elif val == 'complete' %}
+            mdi:printer-3d
+          {% else %}
+            mdi:help-circle
+          {% endif %}
+      vcore400_current_print:
+        friendly_name: "Current Print"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["print_stats"]["filename"]}}'
+      vcore400_current_progress:
+        friendly_name: "Progress"
+        value_template: '{{ ((states.sensor.vcore400_sensor.attributes["display_status"]["progress"])*100) | round(0, "floor") }}'
+        unit_of_measurement: "%"
+        icon_template: mdi:progress-clock
+      vcore400_print_time:
+        friendly_name: "Time Elapsed"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["print_stats"]["print_duration"] |timestamp_custom("%H:%M:%S", 0)}}'
+        icon_template: mdi:camera-timer
+      vcore400_time_remaining:
+        friendly_name: "Time Remaining"
+        value_template: '{{ (((states.sensor.vcore400_sensor.attributes["print_stats"]["print_duration"]/states.sensor.vcore400_sensor.attributes["display_status"]["progress"]- states.sensor.vcore400_sensor.attributes["print_stats"]["print_duration"]) if states.sensor.vcore400_sensor.attributes["display_status"]["progress"]>0 else 0)) | timestamp_custom("%H:%M:%S", 0)}}'
+        icon_template: mdi:timer-sand
+      vcore400_eta:
+        friendly_name: "ETA"
+        value_template: '{{ (as_timestamp(now())+2*60*60+((states.sensor.vcore400_sensor.attributes["print_stats"]["print_duration"]/states.sensor.vcore400_sensor.attributes["display_status"]["progress"]- states.sensor.vcore400_sensor.attributes["print_stats"]["print_duration"]) if states.sensor.vcore400_sensor.attributes["display_status"]["progress"]>0 else 0)) | timestamp_custom("%H:%M:%S", 0)}}'
+        icon_template: mdi:av-timer
+      vcore400_message:
+        friendly_name: "Message"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["display_status"]["message"]}}'
+      vcore400_layer_height:
+        friendly_name: "Layer Height"
+        value_template: '{{ states.sensor.vcore400_file_metadata.attributes["layer_height"] | float }}'
+        unit_of_measurement: "mm"
+        icon_template: mdi:arrow-collapse-down
+      vcore400_object_height:
+        friendly_name: "Object Height"
+        value_template: '{{ (states.sensor.vcore400_file_metadata.attributes["object_height"] | float) - (states.sensor.vcore400_file_metadata.attributes["layer_height"] | float) }}'
+        unit_of_measurement: "mm"
+        icon_template: mdi:arrow-expand-vertical
+      vcore400_current_height:
+        friendly_name: "Current Height"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["gcode_move"]["gcode_position"][2]  | float | round(2) }}'
+        unit_of_measurement: "mm"
+        icon_template: mdi:arrow-collapse-down
+      vcore400_current_layer:
+        friendly_name: "Current Layer"
+        value_template: '{{ (states("sensor.vcore400_current_height")|float / states("sensor.vcore400_layer_height")|float)|round(0) }}'
+      vcore400_total_layers:
+        friendly_name: "Total Layers"
+        value_template: '{{ (states("sensor.vcore400_object_height")|float / states("sensor.vcore400_layer_height")|float)|round(0) }}'
+      vcore400_parent_file_path:
+        friendly_name: "File Parent Path"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["print_stats"]["filename"].split("/")[:-1] |join("/")}}'
+      vcore400_url_thumbnail:
+        friendly_name: "URL thumbnail Path"
+        value_template: '{% if is_state("sensor.vcore400_parent_file_path", "") %}{{ states("sensor.vcore400_object_thumbnails") }}{% else %}{{ states("sensor.vcore400_parent_file_path") }}/{{ states("sensor.vcore400_object_thumbnails") }}{% endif %}'
+      vcore400_object_thumbnails:
+        friendly_name: "Object Thumbnails"
+        value_template: '{{ states.sensor.vcore400_file_metadata.attributes["thumbnails"][1]["relative_path"] }}'
+        icon_template: mdi:image
+      vcore400_state_message:
+        friendly_name: "State Message"
+        value_template: '{{ states.sensor.vcore400_info.attributes["state_message"] }}'
+      vcore400_heaters_power:
+        friendly_name: "Bed and Nozzle Power"
+        value_template: '{{ states("sensor.vcore400_bed_power") }}% / {{ states("sensor.vcore400_hotend_power") }}%'
+      vcore400_mcu_temp:
+        friendly_name: "Octopus Pro 446"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["temperature_sensor Octopus_Pro_446"]["temperature"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer
+      vcore400_rpi_temp:
+        friendly_name: "RaspberryPI Temperature"
+        value_template: '{{ states.sensor.vcore400_sensor.attributes["temperature_sensor raspberry_pi"]["temperature"]  | float | round(1) }}'
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon_template: mdi:thermometer

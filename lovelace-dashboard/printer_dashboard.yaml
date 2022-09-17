@@ -1,0 +1,183 @@
+- title: V-Core 400
+    path: vcore400
+    icon: mdi:printer-3d
+    badges: []
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: button
+            tap_action:
+              action: call-service
+              service: rest_command.vcore400_emergency_stop
+              target: {}
+              data: {}
+            name: STOP
+            icon: mdi:alert-octagon-outline
+            show_state: false
+            show_name: true
+            show_icon: true
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                :host {
+                  --paper-item-icon-color: red;
+                }
+          - type: button
+            tap_action:
+              action: call-service
+              service: rest_command.vcore400_firmware_restart
+              target: {}
+              data: {}
+            name: FW Reset
+            icon: mdi:restart-alert
+            show_icon: true
+            show_name: true
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                :host {
+                  --paper-item-icon-color: green;
+                }
+          - type: button
+            tap_action:
+              action: call-service
+              service: rest_command.vcore400_pause
+              target: {}
+              data: {}
+            icon: mdi:motion-pause-outline
+            name: Pause
+            show_icon: true
+            show_name: true
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                :host {
+                  --paper-item-icon-color: yellow;
+                }
+          - type: button
+            tap_action:
+              action: call-service
+              service: rest_command.vcore400_resume
+              target: {}
+              data: {}
+            icon: mdi:motion-play-outline
+            name: Resume
+            show_icon: true
+            show_name: true
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                :host {
+                  --paper-item-icon-color: green;
+                }
+          - type: button
+            tap_action:
+              action: call-service
+              service: rest_command.vcore400_cancel
+              target: {}
+              data: {}
+            icon: mdi:cancel
+            name: Cancel
+            show_name: true
+            show_icon: true
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                :host {
+                  --paper-item-icon-color: red;
+                }
+          - show_name: true
+            show_icon: true
+            type: button
+            tap_action:
+              action: toggle
+            entity: switch.vcore400_light
+            icon: mdi:led-strip
+            name: Light
+          - show_name: true
+            show_icon: true
+            type: button
+            tap_action:
+              action: toggle
+            entity: switch.vcore400_power
+            name: VCore
+            icon: mdi:power
+      - type: glance
+        entities:
+          - entity: sensor.vcore400_state
+            name: State
+          - entity: sensor.vcore400_current_progress
+          - entity: sensor.vcore400_time_remaining
+            name: Remaining
+          - entity: sensor.vcore400_print_time
+            name: Elapsed
+          - entity: sensor.vcore400_current_layer
+            icon: mdi:layers-edit
+          - entity: sensor.vcore400_total_layers
+            icon: mdi:layers-triple
+          - entity: sensor.vcore400_file_metadata
+          - entity: switch.smart_plug_12
+            name: Power
+            icon: mdi:power
+            tap_action:
+              action: toggle
+        theme: synthwave
+        columns: 4
+        show_name: true
+        show_icon: true
+        state_color: true
+        show_state: true
+      - type: vertical-stack
+        cards:
+          - camera_view: auto
+            type: picture-glance
+            entities: []
+            camera_image: camera.v_core_400_picam
+          - type: glance
+            entities:
+              - entity: sensor.temperature_18
+              - entity: sensor.humidity_19
+              - entity: sensor.ender_3_pro_encloser_sensor_battery_level
+          - type: glance
+            entities:
+              - entity: sensor.vcore400_mcu_temp
+              - entity: sensor.vcore400_rpi_temp
+          - type: horizontal-stack
+            cards:
+              - type: entities
+                entities:
+                  - entity: sensor.power_42
+                  - entity: sensor.consumption_41
+      - camera_view: auto
+        type: picture-glance
+        entities: []
+        camera_image: camera.v_core_400_thumbnail
+      - type: custom:dual-gauge-card
+        title: Hotend
+        min: 0
+        max: 300
+        outer:
+          entity: sensor.vcore400_hotend_actual
+          label: Current
+          unit: °C
+        inner:
+          entity: sensor.vcore400_hotend_target
+          label: Target
+          unit: °C
+      - type: custom:dual-gauge-card
+        title: Bed
+        min: 0
+        max: 150
+        outer:
+          entity: sensor.vcore400_bed_actual
+          label: Current
+          unit: °C
+        inner:
+          entity: sensor.vcore400_bed_target
+          label: Target
+          unit: °C
